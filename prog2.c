@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+// TO DO: ADD TIMERS! And if it all works together, then on to Go Back N. Whoo boy
 
 /* ******************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
@@ -39,58 +40,144 @@ struct pkt {
 void init();
 void generate_next_arrival();
 
+static struct pkt A_bufpkt; // used to buffer last transmitted packet in case of corruption/loss
+static int expected_seqnum; // not sure if this is necessary for simplex transfer
+static int expected_acknum;
+static int APktInTransit = 0; // boolean
+
 /* called from layer 5, passed the data to be sent to other side 
- message will be placed into the payload field of the pkt struct
+   this function is called when the sender-side application layer
+   has a message to send.
+   
+   Call tolayer3(0,pkt) when the packet is ready to send out onto
+   the network
 */
-A_output(message)
+void A_output(message)
+  struct msg message;
+{
+   printf("hello\n");
+   if (APktInTransit) {
+      printf("packet dropped because one already in transit\n");
+      return; // drop packet if one is already in transit and has not yet been ACKed
+   }
+   int i = 0;
+   int sum = 0;
+   for (i = 0; i < 20; i++) {
+      sum += (int)message.data[i];
+   }
+   
+   struct pkt newpkt;
+   newpkt.seqnum = (A_bufpkt.seqnum == 1) ? 2 : 1 ;
+   newpkt.acknum = -99; // placeholder value. no ack nums yet.
+   newpkt.checksum = sum + newpkt.seqnum + newpkt.acknum;
+   printf("In A_output, checksum = %d, seq # = %d\n", newpkt.checksum, newpkt.seqnum);
+   for (i = 0; i < 20; i++) {
+      newpkt.payload[i] = message.data[i];
+      A_bufpkt.payload[i] = message.data[i];
+   }
+   A_bufpkt.seqnum = newpkt.seqnum;
+   A_bufpkt.acknum = -99;
+   A_bufpkt.checksum = sum + newpkt.seqnum + newpkt.acknum;
+   
+   expected_acknum = newpkt.seqnum;
+   APktInTransit = 1;
+
+   tolayer3(0,newpkt);
+}
+
+void B_output(message)  /* need be completed only for extra credit */
   struct msg message;
 {
 
 }
 
-B_output(message)  /* need be completed only for extra credit */
-  struct msg message;
-{
+/* called from layer 3, when a packet arrives for layer 4
+   Used to process ACKs and NAKs from receiver
+*/
 
-}
-
-/* called from layer 3, when a packet arrives for layer 4 */
-A_input(packet)
+void A_input(packet)
   struct pkt packet;
 {
-
-}
+   if ((packet.seqnum + packet.acknum == packet.checksum) && (packet.acknum
+   == expected_acknum)) {
+      APktInTransit = 0; // packet receipt by B confirmed by A
+      return;
+   }
+   else  {
+      printf("A_input: resending pkt, seq#%d\n", A_bufpkt.seqnum);
+      tolayer3(0, A_bufpkt); // retransmit packet. Later, will only be done at timeout
+      return;
+   }
+} 
 
 /* called when A's timer goes off */
-A_timerinterrupt()
+void A_timerinterrupt()
 {
 
 }  
 
 /* the following routine will be called once (only) before any other */
 /* entity A routines are called. You can use it to do any initialization */
-A_init()
+void A_init()
 {
+   A_bufpkt.seqnum = 2; // seq # logic depends on previous state. create a 
+   // "fake" previous "2" state to kickstart the entire process
+   A_bufpkt.acknum = -99;
+   A_bufpkt.checksum = 0;
 }
 
 
 /* Note that with simplex transfer from a-to-B, there is no B_output() */
 
 /* called from layer 3, when a packet arrives for layer 4 at B*/
-B_input(packet)
+void B_input(packet)
   struct pkt packet;
 {
+   printf("packet received at layer 4 of B\n");
+
+   int i = 0;
+   int sum = 0;
+   int checksum = 0;
+
+   for (i = 0; i < 20; ++i) {
+      sum += (int)packet.payload[i];
+      printf("%c", packet.payload[i]);
+   }
+   printf("\n");
+   checksum = sum + packet.seqnum + packet.acknum;
+   printf("In B_input, checksum = %d, pkt.seq = %d, expected_seq = %d\n", checksum, packet.seqnum, expected_seqnum);
+   if ((checksum == packet.checksum) && (packet.seqnum == expected_seqnum)) {
+      printf("success\n");
+      tolayer5(1,packet);
+      packet.acknum = expected_seqnum; 
+      expected_seqnum = (expected_seqnum == 1) ? 2 : 1; // toggle expected_seqnum
+     // should I set packet.payload to NULL after successfully receiving the payload?
+      packet.checksum = packet.acknum + packet.seqnum; 
+      tolayer3(1,packet);
+         return;
+   }
+   else if ((checksum != packet.checksum) || (packet.seqnum != expected_seqnum)) {
+      printf("Rcvr: wrong checksum or sequence number\n");
+      packet.acknum = (expected_seqnum == 1) ? -1 : -2; // Send NAK for expected seqnum
+      // assumption: sending a NAK with seq # of expected seq # is logically equivalent
+      // to sending an ACK with the last correctly received seq #
+      packet.checksum = packet.acknum + packet.seqnum;
+      tolayer3(1,packet);
+         return;
+   }
 }
 
 /* called when B's timer goes off */
-B_timerinterrupt()
+
+void B_timerinterrupt()
 {
 }
 
 /* the following rouytine will be called once (only) before any other */
 /* entity B routines are called. You can use it to do any initialization */
-B_init()
+void B_init()
 {
+   expected_seqnum = 1;
 }
 
 
@@ -463,7 +550,10 @@ struct pkt packet;
 /* finally, compute the arrival time of packet at the other end.
    medium can not reorder, so make sure packet arrives between 1 and 10
    time units after the latest arrival time of packets
-   currently in the medium on their way to the destination */
+   currently in the medium on their way to the destination 
+ message will be placed into the payload field of the pkt struct
+ message will be placed into the payload field of the pkt struct
+*/
  lastime = time;
 /* for (q=evlist; q!=NULL && q->next!=NULL; q = q->next) */
  for (q=evlist; q!=NULL ; q = q->next) 
