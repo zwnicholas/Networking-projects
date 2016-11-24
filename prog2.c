@@ -39,9 +39,12 @@ struct pkt {
 /********* STUDENTS WRITE THE NEXT SEVEN ROUTINES *********/
 void init();
 void generate_next_arrival();
+void tolayer3(int AorB,struct pkt packet);
+void starttimer(int AorB, float increment);
+void stoptimer(int AorB);
 
 static struct pkt A_bufpkt; // used to buffer last transmitted packet in case of corruption/loss
-static int expected_seqnum; // not sure if this is necessary for simplex transfer
+static int expected_seqnum; 
 static int expected_acknum;
 static int APktInTransit = 0; // boolean
 
@@ -68,7 +71,7 @@ void A_output(message)
    
    struct pkt newpkt;
    newpkt.seqnum = (A_bufpkt.seqnum == 1) ? 2 : 1 ;
-   newpkt.acknum = -99; // placeholder value. no ack nums yet.
+   newpkt.acknum = -99; // placeholder
    newpkt.checksum = sum + newpkt.seqnum + newpkt.acknum;
    printf("In A_output, checksum = %d, seq # = %d\n", newpkt.checksum, newpkt.seqnum);
    for (i = 0; i < 20; i++) {
@@ -81,6 +84,7 @@ void A_output(message)
    
    expected_acknum = newpkt.seqnum;
    APktInTransit = 1;
+   starttimer(0, 15.0);
 
    tolayer3(0,newpkt);
 }
@@ -101,11 +105,14 @@ void A_input(packet)
    if ((packet.seqnum + packet.acknum == packet.checksum) && (packet.acknum
    == expected_acknum)) {
       APktInTransit = 0; // packet receipt by B confirmed by A
+      printf("A_input: expected ACK received\n");
+      
+      
+      stoptimer(0);
       return;
    }
    else  {
-      printf("A_input: resending pkt, seq#%d\n", A_bufpkt.seqnum);
-      tolayer3(0, A_bufpkt); // retransmit packet. Later, will only be done at timeout
+      printf("A_input: received ACK/NAK %d\n", packet.acknum);
       return;
    }
 } 
@@ -113,7 +120,9 @@ void A_input(packet)
 /* called when A's timer goes off */
 void A_timerinterrupt()
 {
-
+   printf("Timeout, resending pkt %d\n", A_bufpkt.seqnum);
+   starttimer(0, 15.0);
+   tolayer3(0, A_bufpkt);
 }  
 
 /* the following routine will be called once (only) before any other */
@@ -147,7 +156,7 @@ void B_input(packet)
    checksum = sum + packet.seqnum + packet.acknum;
    printf("In B_input, checksum = %d, pkt.seq = %d, expected_seq = %d\n", checksum, packet.seqnum, expected_seqnum);
    if ((checksum == packet.checksum) && (packet.seqnum == expected_seqnum)) {
-      printf("success\n");
+      printf("success, sending ACK %d\n", expected_seqnum);
       tolayer5(1,packet);
       packet.acknum = expected_seqnum; 
       expected_seqnum = (expected_seqnum == 1) ? 2 : 1; // toggle expected_seqnum
@@ -156,13 +165,20 @@ void B_input(packet)
       tolayer3(1,packet);
          return;
    }
-   else if ((checksum != packet.checksum) || (packet.seqnum != expected_seqnum)) {
-      printf("Rcvr: wrong checksum or sequence number\n");
+   else if (checksum != packet.checksum) {
+      printf("Rcvr: incorrect checksum");
       packet.acknum = (expected_seqnum == 1) ? -1 : -2; // Send NAK for expected seqnum
       // assumption: sending a NAK with seq # of expected seq # is logically equivalent
       // to sending an ACK with the last correctly received seq #
       packet.checksum = packet.acknum + packet.seqnum;
       tolayer3(1,packet);
+         return;
+   }
+   else if (packet.seqnum != expected_seqnum) {
+      packet.acknum = (expected_seqnum == 1) ? 2 : 1;
+      printf("Rcvr: incorrect seqnum %d. Sending ACK %d\n", packet.seqnum, packet.acknum);
+      packet.checksum = packet.acknum + packet.seqnum;
+      tolayer3(1, packet);
          return;
    }
 }
@@ -446,8 +462,8 @@ printevlist()
 /********************** Student-callable ROUTINES ***********************/
 
 /* called by students routine to cancel a previously-started timer */
-stoptimer(AorB)
-int AorB;  /* A or B is trying to stop timer */
+void stoptimer(int AorB)
+  /* A or B is trying to stop timer */
 {
  struct event *q,*qold;
 
@@ -476,11 +492,8 @@ int AorB;  /* A or B is trying to stop timer */
 }
 
 
-starttimer(AorB,increment)
-int AorB;  /* A or B is trying to stop timer */
-float increment;
+void starttimer(int AorB,float increment)
 {
-
  struct event *q;
  struct event *evptr;
  //char *malloc();
@@ -505,7 +518,7 @@ float increment;
 
 
 /************************** TOLAYER3 ***************/
-tolayer3(AorB,packet)
+void tolayer3(AorB,packet)
 int AorB;  /* A or B is trying to stop timer */
 struct pkt packet;
 {
