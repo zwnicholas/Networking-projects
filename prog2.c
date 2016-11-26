@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-// TO DO: ADD TIMERS! And if it all works together, then on to Go Back N. Whoo boy
+// rdt 3.0, alternating bit protocol, Zachary Nicholas, 11/25/16
+// ECE 333
 
 /* ******************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
@@ -58,7 +59,6 @@ static int APktInTransit = 0; // boolean
 void A_output(message)
   struct msg message;
 {
-   printf("hello\n");
    if (APktInTransit) {
       printf("packet dropped because one already in transit\n");
       return; // drop packet if one is already in transit and has not yet been ACKed
@@ -73,7 +73,7 @@ void A_output(message)
    newpkt.seqnum = (A_bufpkt.seqnum == 1) ? 2 : 1 ;
    newpkt.acknum = -99; // placeholder
    newpkt.checksum = sum + newpkt.seqnum + newpkt.acknum;
-   printf("In A_output, checksum = %d, seq # = %d\n", newpkt.checksum, newpkt.seqnum);
+   printf("In A_output, pkt being sent with checksum = %d, seq # = %d\n", newpkt.checksum, newpkt.seqnum);
    for (i = 0; i < 20; i++) {
       newpkt.payload[i] = message.data[i];
       A_bufpkt.payload[i] = message.data[i];

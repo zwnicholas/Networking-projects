@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "queue.h"
-// TO DO: ADD TIMERS! And if it all works together, then on to Go Back N. Whoo boy
-
+// Go-Back-N, Zachary Nicholas, 11/25/16
+// ECE 333
 /* ******************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
 
@@ -46,7 +45,6 @@ void starttimer(int AorB, float increment);
 void stoptimer(int AorB);
 
 static struct pkt Abuffer[50]; // used to buffer last transmitted packet in case of corruption/loss
-static struct pkt Awaiting[50];
 static int expected_seqnum;
 static int nextseqnum;
 static int base;
@@ -67,13 +65,13 @@ void A_output(message)
   struct msg message;
 {
    printf("A has a call from above\n");
-   if (nextseqnum<base+N) {
-
-      printf("A_output: sending pkt %d\n", nextseqnum);
+   if (nextseqnum<base+N) { // if the window is not full
       struct pkt newpkt;
       int i = 0;
       int sum = 0;
       int bufIndex = 0;
+
+      printf("A_output: sending pkt %d\n", nextseqnum);
       for (i = 0; i < 20; i++) {
          sum += (int)message.data[i];
       }
@@ -96,13 +94,7 @@ void A_output(message)
       ++nextseqnum;
    }
    else {
-      printf("window size exceeded. enqueueing message\n");
-      if (enqueue(message) == FALSE) {
-         printf("Queue is full. Refusing data\n");
-      } 
-      else if (enqueue(message) == TRUE) {
-         printf("Message successfully enqueued\n");
-      }
+      printf("window size exceeded. Refusing data\n");
       return;
    }
    
@@ -139,7 +131,7 @@ void A_input(packet)
   struct pkt packet;
 {
    if ((packet.seqnum + packet.acknum == packet.checksum) && (packet.seqnum > 0) && (packet.acknum > 0)){
-      printf("A_input: checksum matches, received ACK %d\n", packet.seqnum);
+      printf("A_input: checksum matches, received ACK %d\n", packet.acknum);
       base = packet.acknum + 1;
       printf("A_input: base = %d, nextseqnum = %d\n", base, nextseqnum);
       if (base == nextseqnum) {
@@ -178,8 +170,6 @@ void A_timerinterrupt()
 /* entity A routines are called. You can use it to do any initialization */
 void A_init()
 {
-   initQueue();
-   printf("queue initialized\n");
    /*for (i=0; i<20; ++i) {
       Abuffer[i] = 0;
       Awaiting[i] = 0;

@@ -6,10 +6,11 @@
 int main() {
    initQueue();
    printf("queue initialized\n");
-   char ** pmsg = NULL; //= malloc(sizeof(char *));
+   char ** pmsg = malloc(sizeof(char *));
+   (*pmsg) = malloc(sizeof(char) * 10);
    int cmd = 0;
    char buf [10];
-   char toEnqueue[10];
+   //char toEnqueue[10];
    
    printf("enter a command: 1 to enqueue, 2 to dequeue, 3 to view\n");
    while(1) {
@@ -18,8 +19,7 @@ int main() {
       if (cmd == 1) {
          printf("enter a string to enqueue\n");
          scanf("%s", buf);
-         strcpy(toEnqueue, buf);
-         if (enqueue(toEnqueue)) {
+         if (enqueue(buf)) {
             printf("%s enqueued successfully\n", buf);
          }
       }

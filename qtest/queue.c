@@ -1,8 +1,9 @@
 // queue implementation
 #include "queue.h"
+#include <string.h>
 
 static int front, rear;
-static char * queue[MAX_SIZE];
+static char queue[MAX_NUM_ELEMENTS][MAX_LENGTH];
 
 void initQueue() 
 {
@@ -22,15 +23,14 @@ void printQueue()
      printf("queue is empty\n");
       return;
    }
-   for (i=0;i<MAX_SIZE;i++) {
+   for (i=0; i<MAX_NUM_ELEMENTS; i++) {
       printf("%s ", queue[i]);
    }
    printf("\n");
 }
 
 int isFull() {
-   printf("queue is full\n");
-   return ((rear - MAX_SIZE) == front);
+ return ((rear - MAX_NUM_ELEMENTS) == front);
    // queue is full if rear has wrapped
    // around to location of the head
 }
@@ -46,9 +46,10 @@ int isEmpty() {
 
 int enqueue(char * message) 
 {
-   printf("in enqueue, printlist:\n");
+   printf("in enqueue, printlist:");
    printQueue();
-   if ((rear+1) % MAX_SIZE == front) {
+   printf("\n");
+   if ((rear+1) % MAX_NUM_ELEMENTS == front) {
       printf("queue is full\n");
       return FALSE; // queue is full
    }
@@ -57,9 +58,9 @@ int enqueue(char * message)
       rear = 0;
    }
    else {
-      rear = (rear + 1) % MAX_SIZE;
+      rear = (rear + 1) % MAX_NUM_ELEMENTS;
    }
-   queue[rear] = message;
+   strcpy(queue[rear], message);
    return TRUE;
 }
 
@@ -70,14 +71,14 @@ int dequeue(char ** pmsg) {
       // can't dequeue, queue already empty
    }
    else if (front == rear) {
-      (*pmsg) = queue[front];
+      ((*pmsg), queue[front]);
       front = -1;
       rear = -1;
       return TRUE;
    }
    else {
-      (*pmsg) = queue[front];
-      front = (front + 1) % MAX_SIZE;
+      strcpy((*pmsg), queue[front]);
+      front = (front + 1) % MAX_NUM_ELEMENTS;
       return TRUE;
    }
 

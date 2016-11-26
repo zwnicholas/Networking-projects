@@ -1,6 +1,7 @@
 #include <stdio.h>
 
-#define MAX_SIZE 4
+#define MAX_NUM_ELEMENTS 4
+#define MAX_LENGTH 10
 
 // Function prototypes
  void initQueue();
